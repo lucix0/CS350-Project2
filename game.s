@@ -20,14 +20,82 @@ main:
     addi $sp, $sp, -4
     sw $ra, 0($sp)
     
-    jal copy_map
+    jal initialize_game
     or $0, $0, $0
     
-    jal print_map
+    jal game_loop
     or $0, $0, $0
-    
+
     lw $ra, 0($sp)
     addi $sp, $sp, 4
+
+    jr $ra
+    or $0, $0, $0
+
+initialize_game:
+    # Store return address on stack
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    jal copy_map
+    or $0, $0, $0
+
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+
+    jr $ra
+    or $0, $0, $0
+
+game_loop:
+    # Store return address on stack
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s0, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s1, 0($sp)
+
+    add $s0, $0, $0 # Termination register
+    game_loop_start:
+        # Draw current map
+        jal print_map
+        or $0, $0, $0
+
+        # Wait for user input
+        jal get_user_input
+        or $0, $0, $0
+        add $s1, $0, $v0
+
+        # Update game state
+
+        # Should game terminate by keypress?
+        addi $t0, $0, 113 # q ASCII code
+        bne $s1, $t0, dont_terminate_from_key
+        or $0, $0, $0
+        addi $s0, $0, 1
+    dont_terminate_from_key:
+        # Run loop again if shouldn't terminate
+        beq $s0, $0, game_loop_start
+        or $0, $0, $0
+
+    lw $s1, 0($sp)
+    addi $sp, $sp, 4
+
+    lw $s0, 0($sp)
+    addi $sp, $sp, 4
+
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+
+    jr $ra
+    or $0, $0, $0
+
+get_user_input:
+    # Get character
+    addi $v0, $0, 12
+    syscall
 
     jr $ra
     or $0, $0, $0
