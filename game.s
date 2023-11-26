@@ -212,6 +212,23 @@ move_player:
 
     # Is the new player location open?
     # If not, don't move player
+    # Takes into account both walls and map edges
+
+    # Is the position out of bounds?
+    addi $t0, $0, 8  # Upper bound
+    addi $t1, $0, -1 # Lower bound
+    # X check
+    slt $t2, $s1, $t0 # X < 8?
+    slt $t3, $t1, $s1 # X > -1?
+    beq $t2, $0, skip_change
+    beq $t3, $0, skip_change
+    # Y check
+    slt $t2, $s2, $t0 # X < 8?
+    slt $t3, $t1, $s2 # X > -1?
+    beq $t2, $0, skip_change
+    beq $t3, $0, skip_change
+
+    # Is the position empty?
     # Get character at position
     add $a0, $0, $s1
     add $a1, $0, $s2
@@ -231,12 +248,12 @@ move_player:
     # If its not a wall, change position
     # Otherwise, don't change position
     addi $t3, $0, 35 # '#' ASCII code
-    beq $s3, $t3, skip_wall
+    beq $s3, $t3, skip_change
     or $0, $0, $0
     sw $s1, 0($s0)
     sw $s2, 4($s0)
 
-    skip_wall:
+    skip_change:
 
     lw $ra, 0($sp)
     addi $sp, $sp, 4
