@@ -13,15 +13,34 @@
 .data 0x10003000
 .space 64 # Reserved space for the map
 
-# Variables
+# Player Variables
 .data 0x10004000
 .word 0 # X position
 .word 7 # Y position
+.word 0 # Score
+
+# Text prompts
+.data 0x10005000
+.asciiz "Score: "
+.align 5
+.asciiz "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
 
 .text
 .globl main
+
+
+#####################
+#                   #
+#     Main Code     #
+#                   #
+##################### 
+
+
+# Name: main
+# Description: Initializes game and begins game loop
+# Arguments: None
+# Return: None
 main:
-    # Store return address on stack
     addi $sp, $sp, -4
     sw $ra, 0($sp)
     
@@ -37,8 +56,12 @@ main:
     jr $ra
     or $0, $0, $0
 
+
+# Name: initialize_game
+# Description: Prepares initial game map
+# Arguments: None
+# Return: None
 initialize_game:
-    # Store return address on stack
     addi $sp, $sp, -4
     sw $ra, 0($sp)
 
@@ -51,8 +74,12 @@ initialize_game:
     jr $ra
     or $0, $0, $0
 
+
+# Name: game_loop
+# Description: Runs game logic
+# Arguments: None
+# Return: None
 game_loop:
-    # Store return address on stack
     addi $sp, $sp, -4
     sw $ra, 0($sp)
 
@@ -64,8 +91,8 @@ game_loop:
 
     add $s0, $0, $0 # Termination register
     game_loop_start:
-        # Draw current map
-        jal print_map
+        # Display screen elements like map and score
+        jal display_screen
         or $0, $0, $0
 
         # Wait for user input
@@ -119,13 +146,12 @@ game_loop:
         or $0, $0, $0
         addi $s0, $0, 1
     skip_none:
+        # Update map
+        jal update_map
+        or $0, $0, $0
         # Run loop again if shouldn't terminate
         beq $s0, $0, game_loop_start
         or $0, $0, $0
-
-    # Update map
-    jal update_map
-    or $0, $0, $0
 
     lw $s1, 0($sp)
     addi $sp, $sp, 4
@@ -139,16 +165,17 @@ game_loop:
     jr $ra
     or $0, $0, $0
 
-get_user_input:
-    # Get character
-    addi $v0, $0, 12
-    syscall
 
-    jr $ra
-    or $0, $0, $0
+#####################
+#                   #
+#     Game Code     #
+#                   #
+##################### 
+
 
 # Name: move_player
-# Arguments: a0 - Delta-X, a1 - DeltaY
+# Description: Change the player's position by given amounts if new position is clear
+# Arguments: a0 - Delta-X, a1 - Delta-Y
 # Return: None
 move_player:
     addi $sp, $sp, -4
@@ -209,7 +236,8 @@ move_player:
     sw $s1, 0($s0)
     sw $s2, 4($s0)
 
-skip_wall:
+    skip_wall:
+
     lw $ra, 0($sp)
     addi $sp, $sp, 4
 
@@ -228,6 +256,54 @@ skip_wall:
     jr $ra
     or $0, $0, $0
 
+
+#####################
+#                   #
+#      Utility      #
+#                   #
+##################### 
+
+
+# Name: get_user_input
+# Description: Gets character from user
+# Arguments: None
+# Return: v0 - User Character
+get_user_input:
+    # Get character
+    addi $v0, $0, 12
+    syscall
+
+    jr $ra
+    or $0, $0, $0
+
+
+# Name: position_to_offset
+# Description: Covert memory offset from (x, y) position
+# Arguments: a0 - X, a1 - Y
+# Return: v0 - Offset
+position_to_offset:
+    # Offset = Y * 8 + X
+    addi $t0, $0, 8
+    mult $a1, $t0
+    mflo $t0
+    or $0, $0, $0
+    add $v0, $a0, $t0
+
+    jr $ra
+    or $0, $0, $0
+
+
+#####################
+#                   #
+#      Display      #
+#                   #
+##################### 
+
+
+# Name: update_map
+# Description: Wipe map data and recreate with new dynamic object states
+# Arguments: None
+# Return: None
 update_map:
     addi $sp, $sp, -4
     sw $s0, 0($sp)
@@ -297,7 +373,7 @@ update_map:
     ori $t0, 0x3000
     add $t0, $t0, $t1
     addi $t2, $0, 83 # 'S' ASCII code
-    sw $t2, 0($t0)
+    sb $t2, 0($t0)
 
     lw $ra, 0($sp)
     addi $sp, $sp, 4
@@ -317,20 +393,50 @@ update_map:
     jr $ra
     or $0, $0, $0
 
-# Name: position_to_offset
-# Arguments: a0 - X, a1 - Y
-# Return: v0 - Offset
-position_to_offset:
-    # Offset = Y * 8 + X
-    addi $t0, $0, 8
-    mult $a1, $t0
-    mflo $t0
+
+# Name: display_screen
+# Description: Displays map and score
+# Arguments: None
+# Return: None
+display_screen:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    jal clear_screen
     or $0, $0, $0
-    add $v0, $a0, $t0
+
+    jal print_map
+    or $0, $0, $0
+
+    jal print_score
+    or $0, $0, $0
+
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
 
     jr $ra
     or $0, $0, $0
 
+
+# Name: clear_screen
+# Description: Blank out console, so game is easily readable
+# Arguments: None
+# Return: None
+clear_screen:
+    addi $v0, $0, 4
+    lui $a0, 0x1000
+    addi $a0, $a0, 0x5000
+    addi $a0, $a0, 32
+    syscall
+
+    jr $ra
+    or $0, $0, $0
+
+
+# Name: print_map
+# Description: Print dynamic map data to console
+# Arguments: None
+# Return: None 
 print_map:
     addi $sp, $sp, -4
     sw $s0, 0($sp)
@@ -370,9 +476,42 @@ print_map:
         addi $t4, $0, 64
         bne $t0, $t4, print_dyn_map_loop
         or $0, $0, $0
+
+    # Move cursor down with new line character
+    addi $v0, $0, 11
+    addi $a0, $0, 10
+    syscall
     
     lw $s0, 0($sp)
     addi $sp, $sp, 4
     
+    jr $ra
+    or $0, $0, $0
+
+
+# Name: print_score
+# Description: Print current score
+# Arguments: None
+# Return: None
+print_score:
+    # Print score prompt
+    addi $v0, $0, 4
+    lui $a0, 0x1000
+    addi $a0, $a0, 0x5000
+    syscall
+
+    # Print score number
+    addi $v0, $0, 1
+    lui $t0, 0x1000
+    addi $t0, $t0, 0x4000
+    lw $a0, 8($t0)
+    or $0, $0, $0
+    syscall
+
+    # Move cursor down with new line character
+    addi $v0, $0, 11
+    addi $a0, $0, 10
+    syscall
+
     jr $ra
     or $0, $0, $0
