@@ -221,12 +221,16 @@ move_player:
     slt $t2, $s1, $t0 # X < 8?
     slt $t3, $t1, $s1 # X > -1?
     beq $t2, $0, skip_change
+    or $0, $0, $0
     beq $t3, $0, skip_change
+    or $0, $0, $0
     # Y check
     slt $t2, $s2, $t0 # X < 8?
     slt $t3, $t1, $s2 # X > -1?
     beq $t2, $0, skip_change
+    or $0, $0, $0
     beq $t3, $0, skip_change
+    or $0, $0, $0
 
     # Is the position empty?
     # Get character at position
