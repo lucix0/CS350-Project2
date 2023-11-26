@@ -19,11 +19,18 @@
 .word 7 # Y position
 .word 0 # Score
 
+# Game State Variables
+.data 0x10004500
+.word 7 # Exit gate X position
+.word 1 # Exit gate Y position
+
 # Text prompts
 .data 0x10005000
 .asciiz "Score: "
 .align 5
 .asciiz "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+.align 6
+.asciiz "Congratulations! You reached the exit and won!\n"
 
 .text
 .globl main
@@ -89,11 +96,33 @@ game_loop:
     addi $sp, $sp, -4
     sw $s1, 0($sp)
 
+    addi $sp, $sp, -4
+    sw $s2, 0($sp)
+
     add $s0, $0, $0 # Termination register
+    add $s2, $0, $0 # Victory register
     game_loop_start:
         # Display screen elements like map and score
         jal display_screen
         or $0, $0, $0
+
+        # Did the player win last turn?
+        jal check_win
+        or $0, $0, $0
+        add $s2, $0, $v0
+        beq $s2, $0, game_loop_no_win
+        or $0, $0, $0
+
+        # Print win prompt
+        addi $v0, $0, 4
+        lui $a0, 0x1000
+        addi $a0, $a0, 0x5000
+        addi $a0, $a0, 128
+        syscall
+        j game_loop_end
+        or $0, $0, $0
+
+        game_loop_no_win:
 
         # Wait for user input
         jal get_user_input
@@ -153,6 +182,11 @@ game_loop:
         beq $s0, $0, game_loop_start
         or $0, $0, $0
 
+    game_loop_end:
+
+    lw $s2, 0($sp)
+    addi $sp, $sp, 4
+
     lw $s1, 0($sp)
     addi $sp, $sp, 4
 
@@ -171,6 +205,52 @@ game_loop:
 #     Game Code     #
 #                   #
 ##################### 
+
+
+# Name: check_win
+# Description: Check whether the player has reached exit gate
+# Arguments: None
+# Return: v0 - Win?
+check_win:
+    # Player variables address
+    lui $t0, 0x1000
+    addi $t0, $t0, 0x4000
+
+    # Load player position
+    lw $t1, 0($t0)
+    or $0, $0, $0
+    lw $t2, 4($t0)
+    or $0, $0, $0
+
+    # Game state variables address
+    lui $t0, 0x1000
+    addi $t0, $t0, 0x4500
+
+    # Load exit gate position
+    lw $t3, 0($t0)
+    or $0, $0, $0
+    lw $t4, 4($t0)
+    or $0, $0, $0
+
+    # Compare positions
+    bne $t1, $t3, no_match
+    or $0, $0, $0
+    bne $t2, $t4, no_match
+    or $0, $0, $0
+
+    # Return a 1, signifying a win
+    addi $v0, $0, 1
+    j end_check_win
+    or $0, $0, $0
+
+    no_match:
+    # Return a 0, signifying no win
+    add $v0, $0, $0
+
+    end_check_win:
+
+    jr $ra
+    or $0, $0, $0
 
 
 # Name: move_player
@@ -225,8 +305,8 @@ move_player:
     beq $t3, $0, skip_change
     or $0, $0, $0
     # Y check
-    slt $t2, $s2, $t0 # X < 8?
-    slt $t3, $t1, $s2 # X > -1?
+    slt $t2, $s2, $t0 # Y < 8?
+    slt $t3, $t1, $s2 # Y > -1?
     beq $t2, $0, skip_change
     or $0, $0, $0
     beq $t3, $0, skip_change
