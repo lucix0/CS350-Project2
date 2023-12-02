@@ -1,3 +1,6 @@
+# Title: CS350-Project2
+# Author: Igor Cieply
+
 # Static Map
 .data 0x10002000    
 .ascii " ##  ###"
@@ -16,13 +19,13 @@
 # Player Variables
 .data 0x10004000
 .word 0 # X position
-.word 7 # Y position
+.word 0 # Y position
 .word 0 # Score
 
 # Game State Variables
 .data 0x10004500
-.word 7 # Exit gate X position
-.word 1 # Exit gate Y position
+.word 0 # Exit gate X position
+.word 0 # Exit gate Y position
 
 # Text prompts
 .data 0x10005000
@@ -72,7 +75,7 @@ initialize_game:
     addi $sp, $sp, -4
     sw $ra, 0($sp)
 
-    jal update_map
+    jal init_map
     or $0, $0, $0
 
     lw $ra, 0($sp)
@@ -379,7 +382,7 @@ get_user_input:
 
 
 # Name: position_to_offset
-# Description: Covert memory offset from (x, y) position
+# Description: Convert memory offset from (x, y) position
 # Arguments: a0 - X, a1 - Y
 # Return: v0 - Offset
 position_to_offset:
@@ -393,6 +396,22 @@ position_to_offset:
     jr $ra
     or $0, $0, $0
 
+# Name: position_to_offset
+# Description: Convert (x, y) position to memory offset
+# Arguments: a0 - Offset
+# Return: v0 - X, v1, - Y
+offset_to_position:
+    addi $t0, $0, 8
+    # X = Offset % 8
+    # Y = Offset / 8
+    div $a0, $t0
+    
+    mfhi $v0 # X = Remainder
+    mflo $v1 # Y = Quotient
+
+    jr $ra
+    or $0, $0, $0
+
 
 #####################
 #                   #
@@ -401,11 +420,11 @@ position_to_offset:
 ##################### 
 
 
-# Name: update_map
+# Name: init_map
 # Description: Wipe map data and recreate with new dynamic object states
 # Arguments: None
 # Return: None
-update_map:
+init_map:
     addi $sp, $sp, -4
     sw $s0, 0($sp)
 
@@ -420,6 +439,9 @@ update_map:
 
     addi $sp, $sp, -4
     sw $ra, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s4, 0($sp)
     
     # Copy static elements into the dynamic map (Walls and Exit Gate)
     # Address of static map byte array in data segment
@@ -429,9 +451,11 @@ update_map:
     lui $s1, 0x1000
     ori $s1, 0x3000
     # Values
-    add $t0, $0, $0 # Byte index
+    add $s4, $0, $0 # Byte index
+    add $s5, $0, $0 # Potion count
+    add $s6, $0, $0 # Demon count
     copy_static_to_dyn_loop:
-        add $t1, $s0, $t0 # Construct full character address
+        add $t1, $s0, $s4 # Construct full character address
         lb $t3, 0($t1) # Pull character from static map
         or $0, $0, $0
 
@@ -439,19 +463,54 @@ update_map:
         # If its not static, place a space
         # Otherwise, just place the given character
         addi $t4, $0, 83 # 'S' ASCII code
-        bne $t4, $t3, skip_static
+        beq $t4, $t3, s_char
         or $0, $0, $0
-        addi $t3, $0, 32 # ' ' ASCII code
+        addi $t4, $0, 42 # '*' ASCII code
+        beq $t4, $t3, star_char
+        or $0, $0, $0
+        j skip_static
+        or $0, $0, $0
+    s_char:
+        # Set the player position to start position
+        # Address of player variables
+        lui $t5, 0x1000
+        addi $t5, $t5, 0x4000
+        # Get coordinates of index
+        add $a0, $0, $s4
+        jal offset_to_position
+        or $0, $0, $0
+        
+        # Save position to memory
+        sw $v0, 0($t5) # X
+        sw $v1, 4($t5) # Y
 
+        j skip_static
+        or $0, $0, $0
+    star_char:
+        # Set exit gate position
+        # Address of game variables
+        lui $t5, 0x1000
+        addi $t5, $t5, 0x4500
+        # Get coordinates of index
+        add $a0, $0, $s4
+        jal offset_to_position
+        or $0, $0, $0
+
+        # Save position to memory
+        sw $v0, 0($t5) # X
+        sw $v1, 4($t5) # Y
+        
+        j skip_static
+        or $0, $0, $0
     skip_static:
-        add $t2, $s1, $t0 # Construct full character address
+        add $t2, $s1, $s4 # Construct full character address
         sb $t3, 0($t2) # Put character into dynamic map
 
-        addi $t0, $t0, 1 # Increment byte index
+        addi $s4, $s4, 1 # Increment byte index
 
         # Exit loop if index reaches 64
         addi $t4, $0, 64
-        bne $t0, $t4, copy_static_to_dyn_loop
+        bne $s4, $t4, copy_static_to_dyn_loop
         or $0, $0, $0
 
     # Place player into map
@@ -475,6 +534,108 @@ update_map:
     add $t0, $t0, $t1
     addi $t2, $0, 83 # 'S' ASCII code
     sb $t2, 0($t0)
+
+    lw $s4, 0($sp)
+    addi $sp, $sp, 4
+
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+
+    lw $s3, 0($sp)
+    addi $sp, $sp, 4
+    
+    lw $s2, 0($sp)
+    addi $sp, $sp, 4
+
+    lw $s1, 0($sp)
+    addi $sp, $sp, 4
+    
+    lw $s0, 0($sp)
+    addi $sp, $sp, 4
+
+    jr $ra
+    or $0, $0, $0
+
+
+# Name: update_map
+# Description: Wipe map data and recreate with new dynamic object states
+# Arguments: None
+# Return: None
+update_map:
+    addi $sp, $sp, -4
+    sw $s0, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s1, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s2, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s3, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    addi $sp, $sp, -4
+    sw $s4, 0($sp)
+    
+    # Copy static elements into the dynamic map (Walls and Exit Gate)
+    # Address of static map byte array in data segment
+    lui $s0, 0x1000
+    ori $s0, 0x2000
+    # Address of dynamic map byte array in data segment
+    lui $s1, 0x1000
+    ori $s1, 0x3000
+    # Values
+    add $s4, $0, $0 # Byte index
+    update_copy_static_to_dyn_loop:
+        add $t1, $s0, $s4 # Construct full character address
+        lb $t3, 0($t1) # Pull character from static map
+        or $0, $0, $0
+
+        # What is the character?
+        # If its not static, place a space
+        # Otherwise, just place the given character
+        addi $t4, $0, 83 # 'S' ASCII code
+        bne $t4, $t3, update_skip_static
+        or $0, $0, $0
+        addi $t3, $0, 32 # ' ' ASCII code
+    update_skip_static:
+        add $t2, $s1, $s4 # Construct full character address
+        sb $t3, 0($t2) # Put character into dynamic map
+
+        addi $s4, $s4, 1 # Increment byte index
+
+        # Exit loop if index reaches 64
+        addi $t4, $0, 64
+        bne $s4, $t4, update_copy_static_to_dyn_loop
+        or $0, $0, $0
+
+    # Place player into map
+    # Address of player data
+    lui $t0, 0x1000 
+    ori $t0, 0x4000
+    lb $s2, 0($t0) # X-Position
+    or $0, $0, $0
+    lb $s3, 4($t0) # Y-Position
+    or $0, $0, $0
+
+    add $a0, $0, $s2
+    add $a1, $0, $s3
+    jal position_to_offset
+    or $0, $0, $0
+    add $t1, $0, $v0
+
+    # Place player at this address
+    lui $t0, 0x1000 
+    ori $t0, 0x3000
+    add $t0, $t0, $t1
+    addi $t2, $0, 83 # 'S' ASCII code
+    sb $t2, 0($t0)
+
+    lw $s4, 0($sp)
+    addi $sp, $sp, 4
 
     lw $ra, 0($sp)
     addi $sp, $sp, 4
@@ -544,7 +705,7 @@ print_map:
     
     # Address of dynamic map byte array in data segment
     lui $s0, 0x1000
-    ori $s0, 0x3000
+    ori $s0, $s0, 0x3000
     
     # Values
     add $t0, $0, $0 # Byte index
